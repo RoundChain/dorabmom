@@ -1177,10 +1177,10 @@ unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast)
     unsigned int nActualTimespan = pindexLast->nTime - pindexFirst->nTime;
     if (fDebug)
         printf("[DIFF] nActualTimespan = %d before bounds\n", nActualTimespan);
-    if (nActualTimespan < nTargetTimespan/2)
-        nActualTimespan = nTargetTimespan/2;
-    if (nActualTimespan > nTargetTimespan*2)
-        nActualTimespan = nTargetTimespan*2;
+    if (nActualTimespan < nTargetTimespan/4)
+        nActualTimespan = nTargetTimespan/4;
+    if (nActualTimespan > nTargetTimespan*4)
+        nActualTimespan = nTargetTimespan*4;
 
     // Retarget
     CBigNum bnNew;
