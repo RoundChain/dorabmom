@@ -55,7 +55,7 @@ else
 	# Native Windows (MSYS2)
 	WXCONFIG ?= wx-config
 	WXCXXFLAGS := $(shell $(WXCONFIG) --cxxflags --static 2>/dev/null || echo "-DwxUSE_GUI=0")
-	WXLIBS := $(shell $(WXCONFIG) --libs --static 2>/dev/null || echo "")
+	WXLIBS := $(shell $(WXCONFIG) --libs 2>/dev/null || echo "")
 endif
 
 # Include paths
