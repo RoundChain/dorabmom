@@ -4,34 +4,7 @@ Peer-to-peer electronic cash. Started from Bitcoin v0.3.19, the last release Sat
 
 ---
 
-Bitcoin changed. Not all of the changes were improvements.
-
-The script engine got neutered. The priority system got removed. Mining moved to ASICs. Replace-by-fee broke zero-confirm payments. What is left is a settlement layer for large holders, not the thing Satoshi built.
-
-dorabmon finishes the parts that were left unfinished:
-
-- Script engine with all original opcodes, running inside a bounded VM. OP_CAT, OP_MUL, OP_AND, OP_SUBSTR, all of them. Bitcoin Core disabled them. We made them safe instead.
-- Priority-based fees, as Satoshi designed. Coins held a day move free. Fees exist to stop spam.
-- Yespower proof-of-work. Memory-hard, CPU-friendly. A laptop can mine.
-- SPV clients. Header sync, bloom filters, Merkle proofs. Section 8 of the whitepaper.
-- BIP 22 mining RPC. Full getblocktemplate support for pools.
-
 New genesis. Separate network. Same 21M cap, same halving, same 10-minute blocks.
-
----
-
-## Quick Start
-
-```bash
-./dorabmond                     # start node
-./dorabmond -gen                # start node and mine
-./dorabmond getinfo             # check status
-./dorabmond stop                # stop
-```
-
-```bash
-./dorabmon                      # GUI wallet
-```
 
 ---
 
@@ -50,7 +23,6 @@ New genesis. Separate network. Same 21M cap, same halving, same 10-minute blocks
 | Genesis hash | `0x0290400ea28d3fe79d102ca6b7cd11cee5eba9f17f2046c303d92f65d6ed2617` |
 | Script exec active | block 18,000 |
 | Time warp protection | block 16,000 |
-| Network magic | `b4 0b c0 de` |
 
 ---
 
@@ -134,50 +106,6 @@ server=1
 rpcuser=user
 rpcpassword=pass
 gen=0
-addnode=seed1.dorabmond.run
-```
-
-For web clients:
-
-```ini
-cors=1
-corsorigin=http://localhost:3000
-```
-
----
-
-## Building
-
-### Ubuntu 24.04 (daemon)
-
-```bash
-sudo apt-get install build-essential libssl-dev libdb5.3-dev libboost-all-dev
-make -f makefile.unix
-```
-
-### Ubuntu 24.04 (with GUI)
-
-```bash
-sudo apt-get install libwxgtk3.2-dev libgtk-3-dev
-make -f makefile.unix gui
-```
-
-Full build instructions for each platform are in docs/.
-
----
-
-## DNS Seeds
-
-```
-seed1.dorabmond.run
-seed2.dorabmond.run
-seed3.dorabmond.run
-```
-
-Manual peer:
-
-```bash
-./dorabmond -addnode=1.2.3.4
 ```
 
 ---
@@ -187,7 +115,7 @@ Manual peer:
 Included from launch:
 
 - Value overflow protection
-- Blockchain checkpoints (0, 6666, 14000, 16000)
+- Blockchain checkpoints (0)
 - Connection and message size rate limits
 
 Added:
