@@ -1,0 +1,324 @@
+# Copyright (c) 2009-2010 Satoshi Nakamoto
+# Distributed under the MIT/X11 software license, see the accompanying
+# file license.txt or http://www.opensource.org/licenses/mit-license.php.
+#
+# dorabmon: Modernized for Windows 10+ (64-bit)
+# Supports cross-compilation from Ubuntu using MinGW-w64
+
+# Cross-compilation prefix (auto-detect or set manually)
+CROSS_PREFIX ?= x86_64-w64-mingw32-
+
+# Detect if we're cross-compiling from Linux
+UNAME_S := $(shell uname -s 2>/dev/null || echo Windows)
+ifneq (,$(findstring Linux,$(UNAME_S)))
+	IS_CROSS_COMPILE = 1
+	# Prefer MXE compiler if available (has correct threading model)
+	MXE_CXX := $(shell which x86_64-w64-mingw32.static-g++ 2>/dev/null)
+	ifneq ($(MXE_CXX),)
+	    CXX = x86_64-w64-mingw32.static-g++
+	    STRIP = x86_64-w64-mingw32.static-strip
+	    CROSS_PREFIX = x86_64-w64-mingw32.static-
+	else
+	    CXX = $(CROSS_PREFIX)g++
+	    STRIP = $(CROSS_PREFIX)strip
+	endif
+else
+	# Native Windows build (MSYS2)
+	CXX = g++
+	STRIP = strip
+endif
+
+# Compiler flags for Windows 10+ (64-bit)
+# AUTO-OPTIMIZED: -march=native enables all CPU features (AVX2, SSE4.1, etc)
+# For distribution binaries: override with make MARCH=x86-64-v3
+MARCH ?= native
+CXXFLAGS = -std=c++11 -O3 -march=$(MARCH) -fomit-frame-pointer -mthreads -w -Wno-invalid-offsetof -Wformat
+CXXFLAGS += -D_WIN32_WINNT=0x0A00  # Windows 10
+CXXFLAGS += -DWIN32 -D_WINDOWS -DNOPCH
+CXXFLAGS += -DOPENSSL_SUPPRESS_DEPRECATED
+
+# Static linking for portability (no DLL dependencies)
+LDFLAGS = -static -static-libgcc -static-libstdc++
+
+# wxWidgets configuration (for GUI builds)
+ifdef IS_CROSS_COMPILE
+	# Cross-compile: detect MXE wx-config
+	WXCONFIG ?= $(shell which x86_64-w64-mingw32.static-wx-config 2>/dev/null || which $(CROSS_PREFIX)wx-config 2>/dev/null || echo "")
+	ifeq ($(WXCONFIG),)
+	    $(error wxWidgets not found! Make sure MXE is in your PATH: export PATH=$$HOME/mxe/usr/bin:$$PATH)
+	else
+	    WXCXXFLAGS := $(shell $(WXCONFIG) --cxxflags 2>/dev/null)
+	    WXLIBS := $(shell $(WXCONFIG) --libs std 2>/dev/null)
+	endif
+else
+	# Native Windows (MSYS2)
+	# Native Windows (MSYS2)
+	WXCONFIG ?= wx-config
+	WXCXXFLAGS := $(shell $(WXCONFIG) --cxxflags --static 2>/dev/null || echo "-DwxUSE_GUI=0")
+	WXLIBS := $(shell $(WXCONFIG) --libs --static 2>/dev/null || echo "")
+endif
+
+# Include paths
+INCLUDEPATHS = \
+	-I"."
+
+# On MSYS2, use system paths
+ifndef IS_CROSS_COMPILE
+	INCLUDEPATHS += \
+	    -I"/mingw64/include" \
+	    -I"/mingw64/include/wx-3.2"
+else
+	# Cross-compile: add MXE include paths
+	MXE_TARGET ?= x86_64-w64-mingw32.static
+	MXE_PREFIX ?= $(shell dirname $$(dirname $$(which $(CROSS_PREFIX)g++ 2>/dev/null || echo /usr/bin/false) 2>/dev/null) 2>/dev/null)
+	ifneq ($(MXE_PREFIX),)
+	    INCLUDEPATHS += -I"$(MXE_PREFIX)/$(MXE_TARGET)/include"
+	endif
+endif
+
+# Library paths
+LIBPATHS =
+
+ifndef IS_CROSS_COMPILE
+	LIBPATHS += -L"/mingw64/lib"
+else
+	# Cross-compile: add MXE library paths
+	ifneq ($(MXE_PREFIX),)
+	    LIBPATHS += -L"$(MXE_PREFIX)/$(MXE_TARGET)/lib"
+	endif
+endif
+
+# ===== 自动检测 Boost 库命名风格 =====
+# MSYS2: libboost_filesystem-mt.a (无 -x64 后缀)
+# MXE:   libboost_filesystem-mt-x64.a (有 -x64 后缀)
+# 注意: Boost 1.69+ System 是 header-only，不需要链接库
+# 注意: Boost 1.86+ MSYS2 移除了 libboost_system-mt.a 存根库
+ifndef IS_CROSS_COMPILE
+	# MSYS2 环境 (Boost 1.90)
+	BOOST_SUFFIX = -mt
+	# System 库已移除，不需要链接
+	BOOST_SYSTEM_LIB = 
+else
+	# MXE 交叉编译环境 (旧版本 Boost)
+	BOOST_SUFFIX = -mt-x64
+	BOOST_SYSTEM_LIB = -lboost_system$(BOOST_SUFFIX)
+endif
+
+# Libraries for daemon (no GUI)
+LIBS_DAEMON = \
+	$(BOOST_SYSTEM_LIB) \
+	-lboost_filesystem$(BOOST_SUFFIX) \
+	-ldb_cxx \
+	-lssl \
+	-lcrypto \
+	-lcrypt32 \
+	-lz \
+	-lws2_32 \
+	-lshlwapi \
+	-lmswsock \
+	-lole32 \
+	-loleaut32 \
+	-luuid \
+	-lgdi32
+
+# Libraries for GUI
+LIBS_GUI = \
+    -lwx_mswu_xrc-3.2 \
+    -lwx_mswu_html-3.2 \
+    -lwx_mswu_qa-3.2 \
+    -lwx_mswu_core-3.2 \
+    -lwx_baseu-3.2 \
+    -lwx_baseu_xml-3.2 \
+    -lwx_baseu_net-3.2 \
+    -lwx_baseu-3.2 \
+    -lwx_mswu_core-3.2 \
+    -lwx_baseu-3.2 \
+    $(BOOST_SYSTEM_LIB) \
+    -lboost_filesystem$(BOOST_SUFFIX) \
+    -ldb_cxx-6.2 -ldb-6.2 \
+    -lssl \
+    -lcrypto \
+    -lcrypt32 \
+    -lkernel32 \
+    -luser32 \
+    -lgdi32 \
+    -lcomdlg32 \
+    -lwinspool \
+    -lwinmm \
+    -lshell32 \
+    -lcomctl32 \
+    -lole32 \
+    -loleaut32 \
+    -loleacc \
+    -luuid \
+    -lrpcrt4 \
+    -ladvapi32 \
+    -lws2_32 \
+    -lshlwapi \
+    -lmswsock \
+    -lversion \
+    -luxtheme \
+    -lwxpng-3.2 \
+    -lwxzlib-3.2
+
+# Defines
+DEFS = -DNOPCH -D_FILE_OFFSET_BITS=64 -DOPENSSL_SUPPRESS_DEPRECATED
+DEFS_GUI = $(DEFS) -DwxUSE_GUI=1 -DWIN32 -D__WXMSW__
+DEFS_DAEMON = $(DEFS) -DwxUSE_GUI=0
+
+# SIMD compiler flags for x86_64 Windows
+SSE41_FLAGS = -msse4.1
+SHANI_FLAGS = -msse4.1 -msha
+
+# Enable optimized implementations
+CRYPTO_DEFS = -DENABLE_SSE41 -DENABLE_X86_SHANI
+
+# Debug flags (comment out for release)
+# DEBUGFLAGS = -g -D__WXDEBUG__
+
+# Headers
+HEADERS = headers.h strlcpy.h serialize.h uint256.h util.h key.h bignum.h base58.h \
+	script.h bitcoin_db.h db_cxx_compat.h net.h irc.h main.h rpc.h uibase.h ui.h init.h sha.h \
+	yespower.h yespower_hash.h sysendian.h bloom.h merkleblock.h stealth.h
+
+# Crypto object files (optimized SHA256)
+OBJS_CRYPTO = \
+	obj/crypto/sha256.o \
+	obj/crypto/sha256_shani.o
+
+# Yespower object files (ASIC-resistant PoW)
+OBJS_YESPOWER = \
+	obj/yespower/yespower-opt.o \
+	obj/yespower/yespower_dispatch.o \
+	obj/yespower/sha256-yp.o
+
+# Object files for GUI
+OBJS_GUI = \
+	obj/gui/util.o \
+	obj/gui/script.o \
+	obj/gui/bitcoin_db.o \
+	obj/gui/net.o \
+	obj/gui/irc.o \
+	obj/gui/main.o \
+	obj/gui/rpc.o \
+	obj/gui/init.o \
+	obj/gui/ui.o \
+	obj/gui/uibase.o \
+	obj/gui/stealth.o \
+	obj/sha.o \
+	$(OBJS_CRYPTO) \
+	$(OBJS_YESPOWER)
+
+# Object files for daemon
+OBJS_DAEMON = \
+	obj/nogui/util.o \
+	obj/nogui/script.o \
+	obj/nogui/bitcoin_db.o \
+	obj/nogui/net.o \
+	obj/nogui/irc.o \
+	obj/nogui/main.o \
+	obj/nogui/rpc.o \
+	obj/nogui/init.o \
+	obj/nogui/stealth.o \
+	obj/sha.o \
+	$(OBJS_CRYPTO) \
+	$(OBJS_YESPOWER)
+
+# Resource file (Windows icon, etc.)
+ifdef IS_CROSS_COMPILE
+	MXE_WINDRES := $(shell which x86_64-w64-mingw32.static-windres 2>/dev/null)
+	ifneq ($(MXE_WINDRES),)
+	    WINDRES = x86_64-w64-mingw32.static-windres
+	else
+	    WINDRES = $(CROSS_PREFIX)windres
+	endif
+else
+	WINDRES = windres
+endif
+
+# Targets
+all: dorabmond.exe dorabmon.exe
+
+# Individual targets
+daemon: dorabmond.exe
+gui: dorabmon.exe
+
+# Daemon version (no GUI)
+dorabmond.exe: directories $(OBJS_DAEMON)
+	$(CXX) $(CXXFLAGS) $(DEFS_DAEMON) $(LDFLAGS) -o $@ $(LIBPATHS) $(OBJS_DAEMON) $(LIBS_DAEMON)
+	$(STRIP) $@
+	@echo "dorabmond.exe built successfully"
+
+# GUI version (requires wxWidgets)
+dorabmon.exe: directories $(OBJS_GUI) obj/ui_res.o
+	$(CXX) $(CXXFLAGS) $(DEFS_GUI) $(LDFLAGS) -mwindows -o $@ $(LIBPATHS) $(OBJS_GUI) obj/ui_res.o $(LIBS_GUI)
+	$(STRIP) $@
+	@echo "dorabmon.exe built successfully"
+
+# Create object directories
+directories:
+	@mkdir -p obj
+	@mkdir -p obj/gui
+	@mkdir -p obj/nogui
+	@mkdir -p obj/crypto
+	@mkdir -p obj/yespower
+
+# GUI object files
+obj/gui/%.o: %.cpp $(HEADERS)
+	$(CXX) -c $(CXXFLAGS) $(DEFS_GUI) $(WXCXXFLAGS) $(INCLUDEPATHS) -o $@ $<
+
+# Daemon object files (no GUI)
+obj/nogui/%.o: %.cpp $(HEADERS)
+	$(CXX) -c $(CXXFLAGS) $(DEFS_DAEMON) $(INCLUDEPATHS) -o $@ $<
+
+# SHA optimization (legacy CryptoPP)
+obj/sha.o: sha.cpp sha.h
+	$(CXX) -c $(CXXFLAGS) -O3 $(DEFS) $(INCLUDEPATHS) -o $@ $<
+
+# Optimized crypto - SHA256 base implementation
+obj/crypto/sha256.o: crypto/sha256.cpp crypto/sha256.h crypto/cpuid.h
+	$(CXX) -c $(CXXFLAGS) -O3 $(DEFS) $(CRYPTO_DEFS) $(INCLUDEPATHS) -o $@ $<
+
+# Optimized crypto - SHA-NI hardware acceleration
+obj/crypto/sha256_shani.o: crypto/sha256_shani.cpp crypto/sha256.h
+	$(CXX) -c $(CXXFLAGS) -O3 $(DEFS) $(CRYPTO_DEFS) $(SHANI_FLAGS) $(INCLUDEPATHS) -o $@ $<
+
+# Windows resource file (icon, version info, etc.)
+obj/ui_res.o: ui.rc
+	@echo "Compiling Windows resources..."
+	$(WINDRES) $(DEFS_GUI) $(WXCXXFLAGS) $(INCLUDEPATHS) -i $< -o $@
+
+# Yespower - ASIC-resistant proof-of-work algorithm
+ifdef IS_CROSS_COMPILE
+	MXE_CC := $(shell which x86_64-w64-mingw32.static-gcc 2>/dev/null)
+	ifneq ($(MXE_CC),)
+	    CC = x86_64-w64-mingw32.static-gcc
+	else
+	    CC = $(CROSS_PREFIX)gcc
+	endif
+else
+	CC = gcc
+endif
+# AUTO-OPTIMIZED: Uses -march=native to detect YOUR CPU and enable ALL optimizations
+# For distribution binaries: override with YESPOWER_ARCH=x86-64-v3 (works on most CPUs 2015+)
+# For old CPUs: override with YESPOWER_ARCH=x86-64 (maximum compatibility)
+YESPOWER_ARCH ?= $(MARCH)
+YESPOWER_FLAGS = -O3 -funroll-loops -march=$(YESPOWER_ARCH) -fomit-frame-pointer -ftree-vectorize -ffast-math
+
+obj/yespower/yespower-opt.o: yespower-opt.c yespower.h yespower-platform.c sha256.h sysendian.h insecure_memzero.h
+	$(CC) -c $(YESPOWER_FLAGS) $(DEFS) $(INCLUDEPATHS) -o $@ $<
+
+obj/yespower/sha256-yp.o: sha256.c sha256.h
+	$(CC) -c $(YESPOWER_FLAGS) $(DEFS) $(INCLUDEPATHS) -o $@ $<
+
+obj/yespower/yespower_dispatch.o: yespower_dispatch.c yespower_dispatch.h
+	$(CC) -c $(YESPOWER_FLAGS) $(DEFS) $(INCLUDEPATHS) -o $@ $<
+
+# Clean
+clean:
+	-rm -f dorabmon.exe dorabmond.exe
+	-rm -rf obj
+	-rm -f headers.h.gch
+
+.PHONY: all daemon gui clean directories
+
