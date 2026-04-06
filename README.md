@@ -134,31 +134,6 @@ Added:
 
 ---
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [docs/RPC_API.md](docs/RPC_API.md) | Full JSON-RPC reference, all 61 commands |
-| [docs/RAW_TRANSACTIONS.md](docs/RAW_TRANSACTIONS.md) | Raw transaction construction, signing, multisig workflows |
-| [docs/SCRIPT_DEV.md](docs/SCRIPT_DEV.md) | Script developer guide: opcodes, limits, contract patterns, examples |
-| [docs/SCRIPT_EXEC.md](docs/SCRIPT_EXEC.md) | Script engine implementation: what changed and why |
-| [docs/FEES.md](docs/FEES.md) | Priority-based fee policy details |
-| [docs/SPV_CLIENT.md](docs/SPV_CLIENT.md) | SPV protocol specification |
-| [docs/SECURITY_FIXES.md](docs/SECURITY_FIXES.md) | Security hardening details |
-| [docs/dorabmon.md](docs/dorabmon.md) | dorabmon proof-of-work algorithm |
-| [docs/SOLO_MINING.md](docs/SOLO_MINING.md) | Solo mining |
-| [docs/POOL_INTEGRATION.md](docs/POOL_INTEGRATION.md) | Mining pool integration, Stratum, NOMP |
-| [docs/MINING_OPTIMIZATIONS.md](docs/MINING_OPTIMIZATIONS.md) | Mining performance tuning |
-| [docs/BUILD_UNIX.md](docs/BUILD_UNIX.md) | Linux/BSD build |
-| [docs/BUILD_MACOS.md](docs/BUILD_MACOS.md) | macOS build |
-| [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md) | Windows build overview |
-| [docs/BUILD_WINDOWS_MINGW.md](docs/BUILD_WINDOWS_MINGW.md) | Windows MinGW/MSYS2 |
-| [docs/BUILD_WINDOWS_VC.md](docs/BUILD_WINDOWS_VC.md) | Windows Visual Studio |
-| [docs/dorabmon_DEVELOPMENT.md](docs/dorabmon_DEVELOPMENT.md) | Design notes and development philosophy |
-| [docs/GENESIS.md](docs/GENESIS.md) | Genesis block parameters |
-
----
-
 ## License
 
 MIT. See [license.txt](license.txt).
